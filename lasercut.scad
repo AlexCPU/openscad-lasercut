@@ -30,6 +30,7 @@ module lasercutoutSquare(thickness, x=0, y=0,
         cutouts_vb = [],
         flat_adjust = [],
         milling_bit = 0.0,
+		finger_width,
 )
 {
     points = [[0,0], [x,0], [x,y], [0,y], [0,0]];
@@ -50,7 +51,8 @@ lasercutout(thickness=thickness,
         cutouts = cutouts,
         cutouts_vb = cutouts_vb,
         flat_adjust = flat_adjust,
-        milling_bit = milling_bit
+        milling_bit = milling_bit,
+		finger_width = finger_width
     );
 }
 
@@ -69,6 +71,7 @@ module lasercutout(thickness,  points= [],
         cutouts_vb = [],
         flat_adjust = [],
         milling_bit = 0.0,
+		finger_width,
 )
 {
     function max_y(points) = max([for (a = [0:1:len(points)-1])  points[a][1]]);    
@@ -100,11 +103,11 @@ module lasercutout(thickness,  points= [],
             }    
             if(finger_joints != undef) for (t = [0:1:len(finger_joints)-1]) 
             {
-                fingerJoint(finger_joints[t][0], finger_joints[t][1], finger_joints[t][2], thickness, max_y, min_y, max_x, min_x);
+                fingerJoint(finger_joints[t][0], finger_joints[t][1], finger_joints[t][2], thickness, max_y, min_y, max_x, min_x, finger_width=finger_width);
             }    
             if(bumpy_finger_joints != undef) for (t = [0:1:len(bumpy_finger_joints)-1]) 
             {
-                fingerJoint(bumpy_finger_joints[t][0], bumpy_finger_joints[t][1], bumpy_finger_joints[t][2], thickness, max_y, min_y, max_x, min_x, bumps=true);
+                fingerJoint(bumpy_finger_joints[t][0], bumpy_finger_joints[t][1], bumpy_finger_joints[t][2], thickness, max_y, min_y, max_x, min_x, finger_width=finger_width, bumps=true);
             }
             if(screw_tabs != undef) for (t = [0:1:len(screw_tabs)-1]) 
             {
@@ -293,7 +296,7 @@ module captiveNutBoltHole(angle, x, y, nut_flat_width, thickness)
     }
 }
 
-module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min_x, bumps = false, not_mill=true, milling_bit=0)
+module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min_x, bumps = false, not_mill=true, milling_bit=0, finger_width)
 {
     if ( angle == UP )
     {
@@ -303,7 +306,7 @@ module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min
         t_y = max_y;
         if(not_mill)
         {
-            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps);
+            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps, finger_width=finger_width);
         }
         else
         {
@@ -318,7 +321,7 @@ module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min
         t_y = min_y;
         if(not_mill)
         {
-            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps);
+            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps, finger_width=finger_width);
         }
         else
         {
@@ -333,7 +336,7 @@ module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min
         t_y = min_y;
         if(not_mill)
         {
-            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps);
+            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps, finger_width=finger_width);
         }
         else
         {
@@ -348,7 +351,7 @@ module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min
         t_y = max_y;
         if(not_mill)
         {
-            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps);
+            fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = bumps, finger_width=finger_width);
         }
         else
         {
@@ -359,9 +362,10 @@ module fingerJoint(angle, start_up, fingers, thickness, max_y, min_y, max_x, min
 }
 
 
-module fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = false)
+module fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t_y, bumps = false, finger_width)
 {
-
+	fingers_new = (finger_width != undef) ? floor((range_max-range_min)/finger_width/2) : fingers;
+	
     // The tweaks to y translate([0, -thickness,0]) ... thickness*2 rather than *1
     // Are to avoid edge cases and make the dxf export better.
     // All fun
@@ -369,19 +373,19 @@ module fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t
     {
             if(start_up == 1) 
             {
-				for ( p = [ 0 : 1 : fingers] )
+				for ( p = [ 0 : 1 : fingers_new] )
 				{
-					i=range_min + ((range_max-range_min)/(fingers*2+1))*2*p;
-					kerfSize = ((p == 0) || (p == fingers)) ? kerf/2 : kerf;
+					i=range_min + ((range_max-range_min)/(fingers_new*2+1))*2*p;
+					kerfSize = ((p == 0) || (p == fingers_new)) ? kerf/2 : kerf;
 					kerfMove = (p == 0) ? 0 : kerf/2;
 					translate([i-kerfMove,0,0]) 
 					{
-						cube([ (range_max-range_min)/(fingers*2+1) + kerfSize, thickness*2, thickness]);
+						cube([ (range_max-range_min)/(fingers_new*2+1) + kerfSize, thickness*2, thickness]);
 						if(bumps == true)
 						{
-							if (i < (range_max - (range_max-range_min)/fingers ))
+							if (i < (range_max - (range_max-range_min)/fingers_new ))
 							{
-								translate([(range_max-range_min)/(fingers*2+1)+ kerfSize, thickness*1.5, 0]) cylinder(h=thickness, r=thickness/10);
+								translate([(range_max-range_min)/(fingers_new*2+1)+ kerfSize, thickness*1.5, 0]) cylinder(h=thickness, r=thickness/10);
 							}
 						}
 					}
@@ -389,19 +393,19 @@ module fingers(angle, start_up, fingers, thickness, range_min, range_max, t_x, t
             }
             else 
             {
-				for ( p = [ 0 : 1 : fingers-1] )
+				for ( p = [ 0 : 1 : fingers_new-1] )
 				{
-					i=range_min + ((range_max-range_min)/(fingers*2+1)*2)*p;
+					i=range_min + ((range_max-range_min)/(fingers_new*2+1)*2)*p;
 					kerfSize = kerf;
 					kerfMove = kerf/2;
-					translate([i+(range_max-range_min)/(fingers*2+1)-kerfMove,0,0]) 
+					translate([i+(range_max-range_min)/(fingers_new*2+1)-kerfMove,0,0]) 
 					{
-						cube([ (range_max-range_min)/(fingers*2+1)+kerfSize, thickness*2, thickness]);
+						cube([ (range_max-range_min)/(fingers_new*2+1)+kerfSize, thickness*2, thickness]);
 						if(bumps == true)
 						{
-							if (i < (range_max - (range_max-range_min)/fingers ))
+							if (i < (range_max - (range_max-range_min)/fingers_new ))
 							{
-								translate([(range_max-range_min)/(fingers*2+1)+ kerfSize, thickness*1.5, 0]) cylinder(h=thickness, r=thickness/10);
+								translate([(range_max-range_min)/(fingers_new*2+1)+ kerfSize, thickness*1.5, 0]) cylinder(h=thickness, r=thickness/10);
 							}
 						}
 					}
@@ -603,7 +607,8 @@ module lasercutoutBox(thickness, x=0, y=0, z=0, sides=6, num_fingers=2,
         circles_remove_a=[],
         slits_a = [],
         cutouts_a = [],
-        milling_bit = 0.0
+        milling_bit = 0.0,
+		finger_width
 )
 {
 
@@ -625,7 +630,8 @@ module lasercutoutBox(thickness, x=0, y=0, z=0, sides=6, num_fingers=2,
             circles_remove_a=circles_remove_a,
             slits_a=slits_a,
             cutouts_a=cutouts_a,
-            milling_bit = milling_bit
+            milling_bit = milling_bit,
+			finger_width = finger_width
         );
     }
     if (sides==5)
@@ -653,7 +659,8 @@ module lasercutoutBox(thickness, x=0, y=0, z=0, sides=6, num_fingers=2,
             circles_remove_a=circles_remove_a,
             slits_a=slits_a,
             cutouts_a=cutouts_a,
-            milling_bit = milling_bit
+            milling_bit = milling_bit,
+			finger_width = finger_width
         );
 
         }
@@ -683,7 +690,8 @@ module lasercutoutBox(thickness, x=0, y=0, z=0, sides=6, num_fingers=2,
             circles_remove_a=circles_remove_a,
             slits_a=slits_a,
             cutouts_a=cutouts_a,
-            milling_bit = milling_bit
+            milling_bit = milling_bit,
+			finger_width = finger_width
         );
 
     }    
@@ -700,7 +708,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
         circles_remove_a = [],
         slits_a = [],
         cutouts_a = [],
-        milling_bit = 0.0
+        milling_bit = 0.0,
+		finger_width
 )
 {
 
@@ -713,7 +722,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
                                 circles_add = circles_add_a[0], circles_remove = circles_remove_a[0],
                                 slits = slits_a[0],
                                 cutouts = cutouts_a[0],
-                                milling_bit = milling_bit);
+                                milling_bit = milling_bit,
+								finger_width = finger_width);
 
     translate([0,0,z+thickness]) lasercutoutSquare(thickness=thickness,x=x, y=y, simple_tabs = st[1], finger_joints = fj[1],
                                 simple_tab_holes=simple_tab_holes_a[1], captive_nuts=captive_nuts_a[1],
@@ -724,7 +734,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
                                 circles_add = circles_add_a[1], circles_remove = circles_remove_a[1],
                                 slits = slits_a[1],
                                 cutouts = cutouts_a[1],
-                                milling_bit = milling_bit);
+                                milling_bit = milling_bit,
+								finger_width = finger_width);
 
     translate([0,0,thickness]) rotate([90,0,0]) lasercutoutSquare(thickness=thickness,x=x, y=z, finger_joints = fj[2],
                                 simple_tab_holes=simple_tab_holes_a[2], captive_nuts=captive_nuts_a[2],
@@ -735,7 +746,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
                                 circles_add = circles_add_a[2], circles_remove = circles_remove_a[2],
                                 slits = slits_a[2],
                                 cutouts = cutouts_a[2],
-                                milling_bit = milling_bit);
+                                milling_bit = milling_bit,
+								finger_width = finger_width);
 
     translate([0,y+thickness,thickness]) rotate([90,0,0]) lasercutoutSquare(thickness=thickness,x=x, y=z, simple_tabs = st[2], 
                                 finger_joints = fj[3],
@@ -747,7 +759,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
                                 circles_add = circles_add_a[3], circles_remove = circles_remove_a[3],
                                 slits = slits_a[3],
                                 cutouts = cutouts_a[3],
-                                milling_bit = milling_bit
+                                milling_bit = milling_bit,
+								finger_width = finger_width
                                 );
     
     if (sides>4)
@@ -761,7 +774,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
                                 circles_add = circles_add_a[4], circles_remove = circles_remove_a[4],
                                 slits = slits_a[4],
                                 cutouts = cutouts_a[4],
-                                milling_bit = milling_bit);
+                                milling_bit = milling_bit,
+								finger_width = finger_width);
         }
     
     if (sides>5)
@@ -776,7 +790,8 @@ module lasercutoutBoxAdjustedFJ(thickness, x=0, y=0, z=0, sides=6, fj=[], st=[],
                                 circles_add = circles_add_a[5], circles_remove = circles_remove_a[5],
                                 slits = slits_a[5],
                                 cutouts = cutouts_a[5],
-                                milling_bit = milling_bit);
+                                milling_bit = milling_bit,
+								finger_width = finger_width);
     }
 }
 
